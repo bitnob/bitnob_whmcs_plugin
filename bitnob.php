@@ -79,7 +79,7 @@ function bitnob_link($params)
         $oldinvoice = Capsule::table('bitnob_payments')->where('invoiceid', $params['invoiceid'])->first();
         if ($oldinvoice) {
             // Capsule::table('bitnob_payments')->where('invoiceid', $params['invoiceid'])->delete();
-            // header('location: https://checkout.bitnob.co/app/' . $oldinvoice->bitnobid . '/');
+            // header('location: https://checkout.bitnob.co/' . $oldinvoice->bitnobid . '/');
             // exit();
         }
         $systemUrl = $params['systemurl'];
@@ -101,10 +101,11 @@ function bitnob_link($params)
             }
             $amount = $satoshi['data'];
             $postval = array(
+                'customerEmail' => $params['clientdetails']['email'],
                 // 'invoiceid'         => $params['invoiceid'].'-'.rand(100,999),
-                'callbackUrl'      => rtrim($systemUrl,'/') . '/modules/gateways/callback/' . $moduleName . '.php',
+                'callbackUrl'      => rtrim($systemUrl, '/') . '/modules/gateways/callback/' . $moduleName . '.php',
                 'successUrl'       => $returnUrl,
-                'description'      => $params['description'],
+                'description'      => 'Bitcoin Payment for Order No. (' . $params['invoiceid'] . ') . Powered by Bitnob', //$params['description'],
                 'satoshis' => round(($amount) * (pow(10, 8)), 6)
             );
             // echo json_encode($postval);
@@ -118,7 +119,7 @@ function bitnob_link($params)
                     'bitnobid' => $array['data']['id'],
                     'apiresponse' => $resp
                 ]);
-                header('location: https://checkout.bitnob.co/app/' . $array['data']['id'] . '/');
+                header('location: https://checkout.bitnob.co/' . $array['data']['id'] . '/');
                 exit();
             } else {
                 $error = $array['message'];
@@ -130,7 +131,7 @@ function bitnob_link($params)
     $htmlOutput = '<form method="post" action="">';
     $htmlOutput .= '<input type="hidden" name="bitnob" value="bitnob" />';
     $htmlOutput .= '<input type="submit" value="' . $langPayNow . '" />';
-    $htmlOutput .= '</form> <br><h2 style="color:red;">' . $error . '</h2>';
+    $htmlOutput .= '</form><img style="width: 209px;" src="'.$params['systemurl'].'/modules/gateways/bitnob/logo.png" /> <br><h2 style="color:red;">' . $error . '</h2>';
     return $htmlOutput;
 }
 
