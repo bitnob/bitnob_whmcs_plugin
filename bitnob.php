@@ -13,7 +13,7 @@ if (!defined("WHMCS")) {
 function bitnob_MetaData()
 {
     return array(
-        'DisplayName' => 'Bitnob',
+        'DisplayName' => 'Bitnob Test',
         'APIVersion' => '1.0',
     );
 }
@@ -72,71 +72,51 @@ function bitnob_config()
  * @return string
  */
 function bitnob_link($params)
-{
-    // print_r($params); exit();   
+{ 
+    //echo "<pre>";
+    //print_r($params); exit();   
     $langPayNow = $params['langpaynow'];
-    if ($_POST['bitnob'] == 'bitnob') {
-        $oldinvoice = Capsule::table('bitnob_payments')->where('invoiceid', $params['invoiceid'])->first();
-        if ($oldinvoice) {
-            // Capsule::table('bitnob_payments')->where('invoiceid', $params['invoiceid'])->delete();
-            // header('location: https://checkout.bitnob.co/' . $oldinvoice->bitnobid . '/');
-            // exit();
-        }
-        $systemUrl = $params['systemurl'];
-        $returnUrl = $params['returnurl'];
-        $langPayNow = $params['langpaynow'];
-        $moduleName = $params['paymentmethod'];
-        $env = $params['testMode'] == 'on' ? 'sandbox' : 'production'; // 
-        $apikey = $params['testMode'] == 'on' ? $params['testapikey'] : $params['apikey'];
-        $urlconv = "https://api.bitnob.co/api/v1/wallets/convert-currency/";
-        if ($env == 'sandbox') {
-            $urlconv = "https://sandbox.bitnob.co/api/v1/wallets/convert-currency/";
-        }
-        $currencyconv = bitnob_sendData($urlconv, json_encode(["conversion" => strtoupper($params['currency']) . "_BTC", "amount" => $params['amount']]), $apikey);
-        $satoshi = json_decode($currencyconv, true);
-        if ($satoshi['status'] == 1) {
-            $url = "https://api.bitnob.co/api/v1/checkout/";
-            if ($env == 'sandbox') {
-                $url = "https://sandbox.bitnob.co/api/v1/checkout/";
-            }
-            $amount = $satoshi['data'];
-            $postval = array(
-                'customerEmail' => $params['clientdetails']['email'],
-                // 'invoiceid'         => $params['invoiceid'].'-'.rand(100,999),
-                'callbackUrl'      => rtrim($systemUrl, '/') . '/modules/gateways/callback/' . $moduleName . '.php',
-                'successUrl'       => $returnUrl,
-                'description'      => 'Bitcoin Payment for Order No. (' . $params['invoiceid'] . ') . Powered by Bitnob', //$params['description'],
-                'satoshis' => round(($amount) * (pow(10, 8)), 6)
-            );
-            // echo json_encode($postval);
-            // print_r($postval);
-            $resp = bitnob_sendData($url, json_encode($postval), $apikey);
-            $array = json_decode($resp, true);
-            // print_r($array); exit();
-            if ($array['status'] == 1) {
-                Capsule::table('bitnob_payments')->insert([
-                    'invoiceid' => $params['invoiceid'],
-                    'bitnobid' => $array['data']['id'],
-                    'apiresponse' => $resp
-                ]);
-                header('location: https://checkout.bitnob.co/' . $array['data']['id'] . '/');
-                exit();
-            } else {
-                $error = $array['message'];
-            }
-        } else {
-            $error = implode(" ", $satoshi['message']);
-        }
-    }
-    $htmlOutput = '<form method="post" action="">';
+    $moduleName = $params['paymentmethod'];
+    $systemUrl = $params['systemurl'];
+    $apikey = $params['testMode'] == 'on' ? $params['testapikey'] : $params['apikey'];
+    $env = $params['testMode'] == 'on' ? 'sandbox' : 'production'; // 
+    $callbackUrl =  rtrim($systemUrl, '/') . '/modules/gateways/callback/' . $moduleName . '.php';
+    $returnUrl = $params['returnurl'];
+    $description = 'Bitcoin Payment for Order No. (' . $params['invoiceid'] . ') . Powered by Bitnob';
+
+    $htmlOutput = '<form method="post" action="" onsubmit="getFormData(event)" >';
     $htmlOutput .= '<input type="hidden" name="bitnob" value="bitnob" />';
-    $htmlOutput .= '<input type="submit" value="' . $langPayNow . '" />';
-    $htmlOutput .= '</form><img style="width: 209px;" src="'.$params['systemurl'].'/modules/gateways/bitnob/logo.png" /> <br><h2 style="color:red;">' . $error . '</h2>';
+    $htmlOutput .= '<input type="hidden" placeholder="Enter Email" value="'.$params['clientdetails']['email'].'" name="email" id="bitnob-email" required="">';
+    $htmlOutput .= '<input type="submit" style="display:none" value="' . $langPayNow . '" />';
+    $htmlOutput .= '</form><div class="text-center mt-5"><img src="'.$params['systemurl'].'/modules/gateways/bitnob/logo.png" width="250" /></div> <br><h2 style="color:red;">' . $error . '</h2>';
+    $htmlOutput .= '<script>
+                    console.log("i am included");
+                    function pay() {
+                        var data = {
+                            publicKey: "'.$apikey.'",
+                            amount: '.(int)$params['amount'].',
+                            customerEmail: "'.$params['clientdetails']['email'].'",
+                            notificationEmail: "'.$params['clientdetails']['email'].'",
+                            description: "'.$description.'",
+                            currency: "'.$params['currency'].'",
+                            reference: "'.$params['invoiceid'].'-'.rand(10,99999).'",
+                            callbackUrl: "'.$callbackUrl.'",
+                            successUrl: "'.$returnUrl.'",
+                        };
+                        window.initializePayment(data, "'.$env.'");
+                    }
+
+                    function getFormData(e) {
+                        e.preventDefault();
+                        pay();
+                    }
+                </script>';
     return $htmlOutput;
 }
 
 function bitnob_sendData($url, $data, $apikey)
 {
+    
     $curl = curl_init();
     curl_setopt_array($curl, array(
         CURLOPT_URL => $url,
@@ -154,7 +134,9 @@ function bitnob_sendData($url, $data, $apikey)
         ),
     ));
     $response = curl_exec($curl);
+ 
     $err = curl_error($curl);
+ 
     curl_close($curl);
     if ($err) {
         return "cURL Error #:" . $err;

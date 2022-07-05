@@ -21,6 +21,7 @@ if (!$gatewayParams['type']) {
 $data = file_get_contents('php://input');
 $obj = json_decode($data);
 logTransaction($gatewayParams['name'], $data, 'Log');
+
 if ($obj->event == 'checkout.received.paid') {
     try {
         $bitnobid = $obj->data->id;
@@ -31,7 +32,7 @@ if ($obj->event == 'checkout.received.paid') {
         }
         $url = "https://api.bitnob.co/api/v1/transactions/".$obj->data->transactions[0]->id;
         if ($gatewayParams['testMode'] == 'on') {
-            $url = "https://sandbox.bitnob.co/api/v1/transactions/".$obj->data->transactions[0]->id;
+            $url = "https://sandboxapi.bitnob.co/api/v1/transactions/".$obj->data->transactions[0]->id;
         }
         $apikey = $gatewayParams['testMode'] == 'on' ? $gatewayParams['testapikey'] : $gatewayParams['apikey'];
         $resp = bitnob_sendDataCallback($url,$apikey);
@@ -61,6 +62,7 @@ if ($obj->event == 'checkout.received.paid') {
         echo "ok";
     } catch (Exception $e) {
         print_r($e->getMessage());
+    }
     }
 }
 
